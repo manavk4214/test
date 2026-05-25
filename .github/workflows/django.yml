@@ -39,7 +39,7 @@ jobs:
     - name: Run Remote Deployment Commands via SSH
       uses: appleboy/ssh-action@v1.0.3
       with:
-        host: ${{ secrets.AWS_EC2_HOST }}
+        host: 13.126.59.4
         username: ubuntu
         key: ${{ secrets.AWS_EC2_SSH_KEY }}
         port: 22
