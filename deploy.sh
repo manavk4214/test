@@ -20,20 +20,24 @@ fi
 
 cd "$APP_DIR"
 
+# Install System dependencies
 sudo apt-get update -y
 sudo apt-get install -y "$PYTHON_BIN" "${PYTHON_BIN}-venv" "${PYTHON_BIN}-pip" nginx
 
+# Setup Python Virtual Environment
 "$PYTHON_BIN" -m venv "$VENV_DIR"
 source "$VENV_DIR/bin/activate"
 
 python -m pip install --upgrade pip wheel
 
+# Clean windows line endings if present in requirements.txt
 TMP_REQUIREMENTS="$(mktemp)"
 tr -d '\000' < requirements.txt | sed 's/\r$//' > "$TMP_REQUIREMENTS"
 python -m pip install -r "$TMP_REQUIREMENTS"
 python -m pip install gunicorn
 rm -f "$TMP_REQUIREMENTS"
 
+# Write Production Environment File
 cat > "$APP_DIR/.env" <<EOF
 DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS}
 DJANGO_DEBUG=${DJANGO_DEBUG}
@@ -42,11 +46,15 @@ EOF
 
 export DJANGO_ALLOWED_HOSTS DJANGO_DEBUG DJANGO_SECRET_KEY
 
+# Run migrations
 python manage.py migrate --noinput
 
+# Manage Static Files
 rm -rf "$APP_DIR/staticfiles"
 mkdir -p "$APP_DIR/staticfiles"
-cp -f "$APP_DIR/static/index.css" "$APP_DIR/staticfiles/index.css"
+if [ -f "$APP_DIR/static/index.css" ]; then
+  cp -f "$APP_DIR/static/index.css" "$APP_DIR/staticfiles/index.css"
+fi
 
 LOGO_FILE="$(find "$APP_DIR/static" -maxdepth 1 -type f -iname 'logo.*' | head -n 1 || true)"
 if [ -n "$LOGO_FILE" ]; then
@@ -55,7 +63,8 @@ fi
 
 find "$APP_DIR/staticfiles" -type f ! -iname 'index.css' ! -iname 'logo.*' -delete
 
-CURRENT_USER="$(whoami)"
+# Create Systemd Service File (Fix: Ensure it runs as the actual user, not root)
+CURRENT_USER="${SUDO_USER:-$(whoami)}"
 cat | sudo tee "$SERVICE_FILE" >/dev/null <<EOF
 [Unit]
 Description=${APP_NAME} Django service
@@ -73,6 +82,7 @@ Restart=always
 WantedBy=multi-user.target
 EOF
 
+# Setup Nginx configuration
 cat | sudo tee "$NGINX_SITE" >/dev/null <<EOF
 server {
     listen 80;
@@ -94,9 +104,11 @@ server {
 }
 EOF
 
+# Link Nginx sites and disable default Apache/Nginx welcoming page
 sudo ln -sf "$NGINX_SITE" "$NGINX_ENABLED"
 sudo rm -f /etc/nginx/sites-enabled/default
 
+# Restart processes to apply updates
 sudo systemctl daemon-reload
 sudo systemctl enable "${APP_NAME}.service"
 sudo systemctl restart "${APP_NAME}.service"
