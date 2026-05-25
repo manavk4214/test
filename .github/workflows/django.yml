@@ -10,7 +10,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
-      max-parallel: 4
       matrix:
         python-version: [3.12]
 
@@ -37,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Deploy to AWS EC2 via SSH
+    - name: Run Remote Deployment Commands via SSH
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.AWS_EC2_HOST }}
@@ -45,12 +44,13 @@ jobs:
         key: ${{ secrets.AWS_EC2_SSH_KEY }}
         port: 22
         script: |
-          # Navigate to your project folder
+          # Since the manual run already created this folder, just navigate to it
           cd /home/ubuntu/scsptsp
           
-          # Pull latest code from GitHub
-          git pull origin main
+          # Pull down the latest updates you just pushed to GitHub
+          git fetch --all
+          git reset --hard origin/main
           
-          # Make deploy script executable and run it
+          # Run the local deploy script to update dependencies, migrate, and restart Nginx
           chmod +x deploy.sh
           sudo ./deploy.sh
