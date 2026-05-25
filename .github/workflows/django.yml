@@ -41,7 +41,7 @@ jobs:
       with:
         host: 13.126.59.4
         username: ubuntu
-        key: ${{ secrets.AWS_EC2_SSH_KEY }}
+        key: ${{ vars.AWS_EC2_SSH_KEY }}
         port: 22
         script: |
           # Since the manual run already created this folder, just navigate to it
