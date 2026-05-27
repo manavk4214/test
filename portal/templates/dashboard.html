@@ -597,12 +597,7 @@
 
         const url = `/download-filtered-data/?center=${center}&mode=${mode}&caste=${caste}&trained=${trained}&certified=${certified}&placed=${placed}&claimed=${claimed}&scheme=${scheme}&nsqf=${nsqf}&quarterly=${quarterly}&year=${year}&sort_field=${sortField || ""}&sort_order=${sortOrder}`;
 
-        const a = document.createElement("a");
-        a.href = url;
-        a.style.display = "none";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        window.open(url, "_blank");
     }
 
     function renderTable(data) {
