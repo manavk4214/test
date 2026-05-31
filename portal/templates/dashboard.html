@@ -526,7 +526,7 @@
     // ─── Fetch & render ───────────────────────────────────────────────────────
 
     function filterStudents() {
-        const center = document.getElementById("centerFilter").value;
+        const center = USER_CENTER || document.getElementById("centerFilter").value;
         const mode = document.getElementById("modeFilter").value;
         const caste = document.getElementById("casteFilter").value;
         const trained = document.getElementById("trainedFilter").value;
@@ -582,7 +582,7 @@
     }
 
     function downloadFilteredData() {
-        const center = document.getElementById("centerFilter").value;
+        const center = USER_CENTER || document.getElementById("centerFilter").value;
         const mode = document.getElementById("modeFilter").value;
         const caste = document.getElementById("casteFilter").value;
         const trained = document.getElementById("trainedFilter").value;
@@ -916,9 +916,15 @@
             renderTable(filteredData);
         });
 
+    const USER_CENTER = "{{ user_center|default:'' }}";
+
     window.onload = () => {
         currentPage = 1;
         currentLimit = 10;
+        if (USER_CENTER) {
+            document.getElementById("centerFilter").value = USER_CENTER;
+            document.getElementById("centerFilter").disabled = true;
+        }
         filterStudents();
     };
 </script>

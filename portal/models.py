@@ -205,3 +205,19 @@ class Dlc(models.Model):
 
     def __str__(self):
         return f"{self.course_name}"
+
+
+class UserProfile(models.Model):
+    user = models.OneToOneField(
+        "auth.User", on_delete=models.CASCADE, related_name="profile"
+    )
+    center = models.CharField(
+        max_length=30,
+        choices=studentdata.CENTER_CHOICES,
+        null=True,
+        blank=True,
+        help_text="Assigned center for center admin. Leave blank for root/super admin.",
+    )
+
+    def __str__(self):
+        return f"{self.user.username} - {self.center or 'Root Admin'}"

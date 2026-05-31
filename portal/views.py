@@ -22,7 +22,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from openpyxl.styles import Font, PatternFill
 
 from .forms import ExcelUploadForm, StudentDataForm
-from .models import Dlc, NsqfElectronics, NsqfIT, studentdata
+from .models import Dlc, NsqfElectronics, NsqfIT, studentdata, UserProfile
 
 MONTH_MAP = {
     m: i
@@ -75,6 +75,16 @@ SORTABLE_FIELDS = {
 }
 
 CENTERS = ["inderlok", "janakpuri", "karkardooma"]
+
+
+def get_student_qs(user):
+    try:
+        profile = user.profile
+        if profile.center:
+            return studentdata.objects.filter(center_name=profile.center)
+    except UserProfile.DoesNotExist:
+        pass
+    return studentdata.objects.all()
 
 
 def parse_bool(value):
@@ -142,7 +152,7 @@ def quarter_from_date(date_str):
         return None, None
 
 
-def apply_filters(params):
+def apply_filters(params, base_qs=None):
     """
     CRITICAL FIX: Quarterly filtering now checks trained_date and certified_date.
     If filtering by Q1 and student was trained in Q1 but certified in Q2,
@@ -150,7 +160,7 @@ def apply_filters(params):
     When Q2 is selected, the student appears as CERTIFIED (not trained).
     """
     print(params)
-    qs = studentdata.objects.all()
+    qs = base_qs if base_qs is not None else studentdata.objects.all()
     center = params.get("center")
     if center:
         qs = qs.filter(center_name=center)
@@ -335,7 +345,9 @@ def logout_view(request):
 @login_required(login_url="/login")
 @ensure_csrf_cookie
 def dashboard(request):
-    return render(request, "dashboard.html")
+    profile = getattr(request.user, "profile", None)
+    user_center = profile.center if profile and profile.center else None
+    return render(request, "dashboard.html", {"user_center": user_center})
 
 
 @login_required(login_url="/login")
@@ -353,6 +365,9 @@ def upload(request):
             month = (request.POST.get("session") or "").strip().upper()
             year = (request.POST.get("year") or "").strip()
             form_session = f"{month}-{year}" if month and year else ""
+
+            profile = getattr(request.user, "profile", None)
+            user_center = profile.center if profile and profile.center else None
 
             try:
                 wb = openpyxl.load_workbook(uploaded_file, data_only=True)
@@ -372,7 +387,10 @@ def upload(request):
                     row_dict = dict(zip(headers, row))
 
                     aadhaar = row_dict.get("aadhaar")
-                    if aadhaar and studentdata.objects.filter(aadhaar=aadhaar).exists():
+                    dup_qs = studentdata.objects.filter(aadhaar=aadhaar)
+                    if user_center:
+                        dup_qs = dup_qs.filter(center_name=user_center)
+                    if aadhaar and dup_qs.exists():
                         dupes += 1
                         continue
 
@@ -448,7 +466,7 @@ def upload(request):
                             course_hour=course_hour_val,
                             mode=safe_str(row_dict.get("mode")),
                             caste_category=safe_str(row_dict.get("caste_category")),
-                            center_name=safe_str(row_dict.get("center_name")),
+                            center_name=user_center or safe_str(row_dict.get("center_name")),
                             fee=fee_val,
                             fee_date=fee_date_val,
                             trained=trained_bool,
@@ -477,7 +495,7 @@ def upload(request):
 
 @login_required(login_url="/login")
 def filter_students(request):
-    students = apply_filters(request.GET)
+    students = apply_filters(request.GET, get_student_qs(request.user))
     selected_quarter = request.GET.get("quarterly")  # Get selected quarter for claimable amount calculation
     page = int(request.GET.get("page", 1))
     limit = int(request.GET.get("limit", 10))
@@ -501,112 +519,120 @@ def filter_students(request):
 
 @login_required(login_url="/login")
 def download_filtered_data(request):
-    students = apply_filters(request.GET)
-    selected_quarter = request.GET.get("quarterly")  # Get selected quarter for claimable amount calculation
+    try:
+        students = apply_filters(request.GET, get_student_qs(request.user))
+        selected_quarter = request.GET.get("quarterly")  # Get selected quarter for claimable amount calculation
+        print(f"DEBUG: students count {len(students) if isinstance(students, list) else students.count()}, quarter: {selected_quarter}")
 
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Filtered Students"
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Filtered Students"
 
-    headers = [
-        "Roll Number",
-        "Batch Code",
-        "Name",
-        "Father Name",
-        "Mother Name",
-        "DOB",
-        "Gender",
-        "Address",
-        "Qualifications",
-        "Aadhaar",
-        "Course Name",
-        "Scheme",
-        "NSQF",
-        "Course Hours",
-        "Course Category",
-        "Center",
-        "Mode",
-        "Caste Category",
-        "Fee",
-        "Claimable Amount",
-        "Fee Date",
-        "Trained",
-        "Trained Date",
-        "Certified",
-        "Certified Date",
-        "Placed",
-        "Claimed",
-        "Session",
-    ]
-    for col, h in enumerate(headers, 1):
-        cell = ws.cell(row=1, column=col, value=h)
-        cell.font = Font(bold=True)
-        cell.fill = PatternFill(
-            start_color="CCCCCC", end_color="CCCCCC", fill_type="solid"
+        headers = [
+            "Roll Number",
+            "Batch Code",
+            "Name",
+            "Father Name",
+            "Mother Name",
+            "DOB",
+            "Gender",
+            "Address",
+            "Qualifications",
+            "Aadhaar",
+            "Course Name",
+            "Scheme",
+            "NSQF",
+            "Course Hours",
+            "Course Category",
+            "Center",
+            "Mode",
+            "Caste Category",
+            "Fee",
+            "Claimable Amount",
+            "Fee Date",
+            "Trained",
+            "Trained Date",
+            "Certified",
+            "Certified Date",
+            "Placed",
+            "Claimed",
+            "Session",
+        ]
+        for col, h in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=h)
+            cell.font = Font(bold=True)
+            cell.fill = PatternFill(
+                start_color="CCCCCC", end_color="CCCCCC", fill_type="solid"
+            )
+
+        yn = lambda v: "Yes" if v else "No"
+        for row, s in enumerate(students, 2):
+            # Calculate claimable amount based on selected quarter if provided
+            if selected_quarter:
+                claimable = s.get_claimable_amount_for_quarter(selected_quarter)
+            else:
+                claimable = s.claimable_amount
+            
+            for col, val in enumerate(
+                [
+                    s.roll_number,
+                    s.batch_code,
+                    s.name,
+                    s.father_name,
+                    s.mother_name,
+                    s.dob.strftime("%Y-%m-%d") if s.dob else "",
+                    s.gender,
+                    s.address,
+                    s.qualifications,
+                    s.aadhaar,
+                    s.course_name,
+                    s.scheme,
+                    s.nsqf,
+                    s.course_hour,
+                    s.course_category,
+                    s.center_name,
+                    s.mode,
+                    s.caste_category,
+                    float(s.fee),
+                    float(claimable),
+                    str(s.fee_date) if s.fee_date else "",
+                    yn(s.trained),
+                    s.trained_date,
+                    yn(s.certified),
+                    s.certified_date,
+                    yn(s.placed),
+                    yn(s.claimed),
+                    s.session,
+                ],
+                1,
+            ):
+                ws.cell(row=row, column=col, value=val)
+
+        for col in ws.columns:
+            ws.column_dimensions[col[0].column_letter].width = min(
+                max((len(str(c.value)) for c in col if c.value), default=0) + 2, 50
+            )
+
+        response = HttpResponse(
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+        response["Content-Disposition"] = "attachment; filename=filtered_students.xlsx"
+        wb.save(response)
+        return response
 
-    yn = lambda v: "Yes" if v else "No"
-    for row, s in enumerate(students, 2):
-        # Calculate claimable amount based on selected quarter if provided
-        if selected_quarter:
-            claimable = s.get_claimable_amount_for_quarter(selected_quarter)
-        else:
-            claimable = s.claimable_amount
-        
-        for col, val in enumerate(
-            [
-                s.roll_number,
-                s.batch_code,
-                s.name,
-                s.father_name,
-                s.mother_name,
-                s.dob.strftime("%Y-%m-%d") if s.dob else "",
-                s.gender,
-                s.address,
-                s.qualifications,
-                s.aadhaar,
-                s.course_name,
-                s.scheme,
-                s.nsqf,
-                s.course_hour,
-                s.course_category,
-                s.center_name,
-                s.mode,
-                s.caste_category,
-                float(s.fee),
-                float(claimable),
-                str(s.fee_date) if s.fee_date else "",
-                yn(s.trained),
-                s.trained_date,
-                yn(s.certified),
-                s.certified_date,
-                yn(s.placed),
-                yn(s.claimed),
-                s.session,
-            ],
-            1,
-        ):
-            ws.cell(row=row, column=col, value=val)
-
-    for col in ws.columns:
-        ws.column_dimensions[col[0].column_letter].width = min(
-            max((len(str(c.value)) for c in col if c.value), default=0) + 2, 50
-        )
-
-    response = HttpResponse(
-        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-    response["Content-Disposition"] = "attachment; filename=filtered_students.xlsx"
-    wb.save(response)
-    return response
+    except Exception as e:
+        print(f"DEBUG: Error in download_filtered_data: {e}")
+        print(traceback.format_exc())
+        return HttpResponse("Error processing download", status=500)
 
 
 # ─── Report ──────────────────────────────────────────────────────────────────
 
 
-def _session_filter_options():
+def _session_filter_options(base_qs=None):
+    qs = base_qs if base_qs is not None else studentdata.objects.all()
     sessions = list(
-        studentdata.objects.values_list("session", flat=True)
+        qs.values_list("session", flat=True)
         .distinct()
         .order_by("-session")
     )
@@ -618,7 +644,7 @@ def _session_filter_options():
 @login_required(login_url="/login")
 def download(request):
     p = request.GET
-    students = studentdata.objects.all()
+    students = get_student_qs(request.user)
     for key in ["year", "session"]:
         if p.get(key):
             students = students.filter(session__icontains=p[key])
@@ -642,7 +668,8 @@ def download(request):
                     for c in ["GENERAL", "OBC", "SC", "ST", "PWD"]
                 },
             }
-        g = grouped[key][s.caste_category]
+        caste = s.caste_category if s.caste_category in grouped[key] else "GENERAL"
+        g = grouped[key][caste]
         g["total"] += 1
         if s.trained_date:
             g["trained"] += 1
@@ -662,7 +689,7 @@ def download(request):
                 totals[c][k] += item[c][k]
     totals["grand_total"] = sum(totals[c]["total"] for c in castes)
 
-    years, months = _session_filter_options()
+    years, months = _session_filter_options(get_student_qs(request.user))
     return render(
         request,
         "download.html",
@@ -682,7 +709,7 @@ def download(request):
 @login_required(login_url="/login")
 def api_download_data(request):
     p = request.GET
-    students = studentdata.objects.all()
+    students = get_student_qs(request.user)
     for key in ["year", "session"]:
         if p.get(key):
             students = students.filter(session__icontains=p[key])
@@ -725,6 +752,10 @@ def update_student(request, student_id):
         student = studentdata.objects.get(id=student_id)
     except studentdata.DoesNotExist:
         return JsonResponse({"error": "Student not found"}, status=404)
+
+    profile = getattr(request.user, "profile", None)
+    if profile and profile.center and student.center_name != profile.center:
+        return JsonResponse({"error": "Access denied"}, status=403)
 
     try:
         body = json.loads(request.body)
@@ -866,8 +897,9 @@ def inputView(request):
 # ─── Overview ────────────────────────────────────────────────────────────────
 
 
-def _overview_context(selected_session):
-    students = studentdata.objects.all()
+def _overview_context(selected_session, user=None):
+    base_qs = get_student_qs(user) if user else studentdata.objects.all()
+    students = base_qs
     if selected_session:
         students = students.filter(session=selected_session)
 
@@ -881,7 +913,7 @@ def _overview_context(selected_session):
             for n in CENTERS
         ],
         "sessions": list(
-            studentdata.objects.values_list("session", flat=True)
+            base_qs.values_list("session", flat=True)
             .distinct()
             .order_by("-session")
         ),
@@ -891,14 +923,14 @@ def _overview_context(selected_session):
 
 @login_required(login_url="/login")
 def overview(request):
-    ctx = _overview_context(request.GET.get("session", ""))
+    ctx = _overview_context(request.GET.get("session", ""), user=request.user)
     ctx["centers"] = [(c["name"], c["stats"]) for c in ctx["centers"]]
     return render(request, "overview.html", ctx)
 
 
 @login_required(login_url="/login")
 def overview_data(request):
-    return JsonResponse(_overview_context(request.GET.get("session", "")))
+    return JsonResponse(_overview_context(request.GET.get("session", ""), user=request.user))
 
 
 def courses(request):
@@ -995,7 +1027,7 @@ def sample_upload(request):
 
         dv.add(f"{col_letter}2:{col_letter}1048576")
 
-    schemes_qs = studentdata.objects.values_list("scheme", flat=True).distinct()
+    schemes_qs = get_student_qs(request.user).values_list("scheme", flat=True).distinct()
 
     scheme_options = []
     for s in schemes_qs:
