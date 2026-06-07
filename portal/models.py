@@ -108,6 +108,18 @@ class studentdata(models.Model):
 
     def save(self, *args, **kwargs):
         self.course_category = get_course_category(self.course_name, self.course_hour)
+        fee = self.fee or 0
+        if self.is_ao_level():
+            self.claimable_amount = fee if self.certified else 0
+        else:
+            if self.trained and self.certified:
+                self.claimable_amount = fee
+            elif self.certified:
+                self.claimable_amount = fee * 30 / 100
+            elif self.trained:
+                self.claimable_amount = fee * 70 / 100
+            else:
+                self.claimable_amount = 0
         super().save(*args, **kwargs)
 
     def is_ao_level(self):
@@ -154,8 +166,9 @@ class studentdata(models.Model):
         """Calculate claimable amount based on selected quarter filter
         
         Returns the claimable amount as percentage of fee for the given quarter:
-        - For A/O-level: 100% if certified in that quarter, 0% if only trained
-        - For others: 70% if trained in that quarter, 30% if certified in that quarter
+        - For A/O-level: 100% if certified in that quarter, else 0
+        - For others: 70% if trained, 30% if certified.
+          If BOTH trained and certified dates fall in the same quarter → 100%.
         """
         if not self.fee:
             return 0
@@ -164,19 +177,23 @@ class studentdata(models.Model):
         certified_quarter = self.get_quarter_from_date(self.certified_date)
 
         if self.is_ao_level():
-            # A/O level: 100% if certified, 0% if trained
             if self.certified and certified_quarter == selected_quarter:
                 return self.fee
-            else:
-                return 0
-        else:
-            # Non-A/O level: 70% if trained, 30% if certified
-            if self.certified and certified_quarter == selected_quarter:
-                return self.fee * 30 / 100
-            elif self.trained and trained_quarter == selected_quarter:
-                return self.fee * 70 / 100
-            else:
-                return 0
+            return 0
+
+        both_same_quarter = (
+            self.trained
+            and self.certified
+            and trained_quarter
+            and trained_quarter == certified_quarter == selected_quarter
+        )
+        if both_same_quarter:
+            return self.fee
+        if self.certified and certified_quarter == selected_quarter:
+            return self.fee * 30 / 100
+        if self.trained and trained_quarter == selected_quarter:
+            return self.fee * 70 / 100
+        return 0
 
     def __str__(self):
         return f"{self.name} - {self.course_name} ({self.caste_category})"
@@ -205,6 +222,55 @@ class Dlc(models.Model):
 
     def __str__(self):
         return f"{self.course_name}"
+
+
+class PlacementRecord(models.Model):
+    OPPORTUNITY_CHOICES = [
+        ("Internship", "Internship"),
+        ("Placement", "Placement"),
+    ]
+    STATUS_CHOICES = [
+        ("Selected", "Selected"),
+        ("Offered", "Offered"),
+        ("Placed", "Placed"),
+        ("Shortlisted", "Shortlisted"),
+        ("Not Selected", "Not Selected"),
+        ("On Hold", "On Hold"),
+    ]
+
+    student = models.ForeignKey(
+        studentdata, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="placement_records",
+        help_text="Linked studentdata record (if matched)",
+    )
+    student_name = models.CharField(max_length=100, blank=True, default="")
+    aadhaar = models.CharField(max_length=12, blank=True, default="")
+    course_name = models.CharField(max_length=100, blank=True, default="")
+    batch_code = models.CharField(max_length=20, blank=True, default="")
+    center_name = models.CharField(max_length=30, blank=True, default="")
+    opportunity_type = models.CharField(
+        max_length=20, choices=OPPORTUNITY_CHOICES, blank=True, default=""
+    )
+    selection_status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, blank=True, default=""
+    )
+    offer_received = models.BooleanField(null=True, blank=True)
+    company = models.CharField(max_length=200, blank=True, default="")
+    job_title = models.CharField(max_length=200, blank=True, default="")
+    source = models.CharField(max_length=200, blank=True, default="")
+    date_applied = models.CharField(max_length=50, blank=True, default="")
+    joining_date = models.CharField(max_length=50, blank=True, default="")
+    current_status = models.CharField(max_length=100, blank=True, default="")
+    placed = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.student_name} - {self.company or 'N/A'} ({self.opportunity_type})"
+
+    class Meta:
+        verbose_name = "Placement Record"
+        verbose_name_plural = "Placement Records"
 
 
 class UserProfile(models.Model):

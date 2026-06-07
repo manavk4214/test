@@ -41,6 +41,9 @@
                     <li class="libtn {% if request.resolver_match.url_name == 'download' %}active{% endif %}">
                         <a href="{% url 'courses' %}" class="at">View courses</a>
                     </li>
+                    <li class="libtn {% if request.resolver_match.url_name == 'placement' %}active{% endif %}">
+                        <a href="{% url 'placement' %}" class="at">Placement</a>
+                    </li>
                     {% if user.is_authenticated %}
                         <li><a href="{% url 'logout' %}" class="logout">Logout</a></li>
                     {% endif %}

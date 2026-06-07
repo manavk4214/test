@@ -4,4 +4,4 @@ db.sqlite3
 __pycache__/
 *.pyc
 staticfiles/
-...
+sample_*.xlsx

@@ -6,7 +6,8 @@ from portal import views
 urlpatterns = [
     path("login/", views.login_view, name="login"),
     path("logout/", views.logout_view, name="logout"),
-    path("", views.dashboard, name="dashboard"),
+    path("", views.landing, name="landing"),
+    path("dashboard/", views.dashboard, name="dashboard"),
     path("upload/", views.upload, name="upload"),
     path("filter-students/", views.filter_students, name="filter_students"),
     path("download/", views.download, name="download"),
@@ -24,4 +25,7 @@ urlpatterns = [
         name="download_filtered_data",
     ),
     path("sample/", views.sample_upload, name="sample"),
+    path("placement/", views.placement_view, name="placement"),
+    path("filter-placement/", views.filter_placement, name="filter_placement"),
+    path("upload-placement/", views.upload_placement_records, name="upload_placement"),
 ]

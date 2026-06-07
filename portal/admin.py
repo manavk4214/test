@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import studentdata , NsqfElectronics  ,NsqfIT ,Dlc
+from .models import studentdata, NsqfElectronics, NsqfIT, Dlc, PlacementRecord
 from import_export.admin import ImportExportModelAdmin
 # Register your models here.
 
@@ -33,7 +33,19 @@ class StudentDataAdmin(ImportExportModelAdmin):
     "placed"
       ]   
 
-admin.site.register(studentdata,StudentDataAdmin)
+admin.site.register(studentdata, StudentDataAdmin)
 admin.site.register(NsqfIT)
 admin.site.register(NsqfElectronics)
 admin.site.register(Dlc)
+
+
+class PlacementRecordAdmin(admin.ModelAdmin):
+    list_display = [
+        "student_name", "aadhaar", "course_name", "batch_code",
+        "opportunity_type", "company", "job_title", "placed", "created_at",
+    ]
+    list_filter = ["placed", "opportunity_type", "center_name"]
+    search_fields = ["student_name", "aadhaar", "company", "course_name"]
+
+
+admin.site.register(PlacementRecord, PlacementRecordAdmin)

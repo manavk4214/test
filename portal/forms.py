@@ -1,10 +1,16 @@
-from django import forms
-from .models import studentdata 
 from datetime import datetime
 
-# ModelForm for studentdata
 from django import forms
+
 from .models import studentdata
+
+
+class PlacementUploadForm(forms.Form):
+    file = forms.FileField(
+        label="Upload Placement Excel File",
+        widget=forms.FileInput(attrs={"class": "file-input"}),
+    )
+
 
 class StudentDataForm(forms.ModelForm):
     trained_date = forms.DateField(required=False, widget=forms.DateInput(attrs={"class": "form-control", "type": "date"}))

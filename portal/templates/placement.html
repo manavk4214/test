@@ -1,0 +1,392 @@
+{% extends "base.html" %} {% block content %}
+<style>
+    th {
+        cursor: pointer;
+        user-select: none;
+    }
+    th:hover {
+        background-color: rgb(0, 0, 0);
+    }
+    .pagination-btn {
+        padding: 8px 16px;
+        background: var(--blue);
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        font-family: var(--sans);
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s, transform 0.12s, box-shadow 0.15s;
+        box-shadow: 0 2px 6px rgba(26, 111, 196, 0.22);
+        margin: 0 5px;
+    }
+    .pagination-btn:hover:not(:disabled) {
+        background: var(--blue-light);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(26, 111, 196, 0.3);
+    }
+    .pagination-btn:active:not(:disabled) {
+        transform: translateY(0);
+    }
+    .pagination-btn:disabled {
+        background: var(--text-muted);
+        cursor: not-allowed;
+        box-shadow: none;
+        transform: none;
+    }
+    .placement-header {
+        margin-bottom: 1.5rem;
+    }
+    .placement-header h2 {
+        margin-bottom: 0.25rem;
+    }
+    .placement-header .subtitle {
+        color: var(--text-muted);
+        font-size: 13px;
+    }
+    .placement-tabs {
+        display: flex;
+        gap: 0;
+        margin-bottom: 1.5rem;
+        border-bottom: 2px solid var(--border);
+    }
+    .placement-tab {
+        padding: 10px 24px;
+        background: transparent;
+        border: none;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
+        font-family: var(--sans);
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: color 0.15s, border-color 0.15s;
+    }
+    .placement-tab:hover {
+        color: var(--blue);
+    }
+    .placement-tab.active {
+        color: var(--blue);
+        border-bottom-color: var(--blue);
+    }
+    .tab-content {
+        display: none;
+    }
+    .tab-content.active {
+        display: block;
+    }
+    .upload-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 24px;
+        box-shadow: var(--shadow-sm);
+    }
+    .upload-card .form-group {
+        margin-bottom: 16px;
+    }
+    .upload-card .form-group label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 6px;
+        font-size: 14px;
+    }
+    .upload-card .form-actions {
+        display: flex;
+        gap: 12px;
+        margin-top: 20px;
+    }
+    .btn {
+        padding: 10px 24px;
+        border: none;
+        border-radius: 6px;
+        font-family: var(--sans);
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s, transform 0.12s;
+    }
+    .btn-primary {
+        background: var(--blue);
+        color: #fff;
+    }
+    .btn-primary:hover {
+        background: var(--blue-light);
+    }
+    .btn-secondary {
+        background: var(--border);
+        color: var(--text);
+    }
+    .btn-secondary:hover {
+        background: #c0c8d6;
+    }
+    .alert-success {
+        background: #d4edda;
+        color: #155724;
+        padding: 12px 16px;
+        border-radius: 6px;
+        margin-bottom: 16px;
+        font-size: 14px;
+    }
+    .alert-error {
+        background: #f8d7da;
+        color: #721c24;
+        padding: 12px 16px;
+        border-radius: 6px;
+        margin-bottom: 16px;
+        font-size: 14px;
+    }
+    .placement-upload-note {
+        margin-top: 16px;
+        padding: 12px 16px;
+        background: #fff3cd;
+        border-radius: 6px;
+        font-size: 13px;
+        color: #856404;
+    }
+    .placement-upload-note code {
+        background: #ffeeba;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-family: var(--mono);
+        font-size: 12px;
+    }
+</style>
+
+<div class="placement-header">
+    <h2>STUDENTS INTERNSHIP &amp; PLACEMENT TRACKING RECORD</h2>
+    <div class="subtitle">Placement records from uploaded student data</div>
+</div>
+
+<div class="placement-tabs">
+    <button class="placement-tab active" onclick="switchTab('view')">View Records</button>
+    <button class="placement-tab" onclick="switchTab('upload')">Upload Placement Records</button>
+</div>
+
+{% if messages %}
+    {% for message in messages %}
+        <div class="{% if message.tags == 'success' %}alert-success{% else %}alert-error{% endif %}">
+            {{ message }}
+        </div>
+    {% endfor %}
+{% endif %}
+
+<div id="tab-view" class="tab-content active">
+    <div class="filters">
+        <input type="text" id="nameFilter" placeholder="Name..." class="minput" style="width:160px" />
+        <input type="text" id="courseFilter" placeholder="Course..." class="minput" style="width:140px" />
+        <input type="text" id="batchFilter" placeholder="Batch..." class="minput" style="width:100px" />
+        <input type="text" id="companyFilter" placeholder="Company..." class="minput" style="width:160px" />
+        <select id="opportunityFilter">
+            <option value="">All Types</option>
+            <option value="Internship">Internship</option>
+            <option value="Placement">Placement</option>
+        </select>
+        <select id="centerFilter">
+            <option value="">All Centers</option>
+            <option value="inderlok">Inderlok</option>
+            <option value="janakpuri">Janakpuri</option>
+            <option value="karkardooma">Karkardooma</option>
+        </select>
+        <select id="placedFilter">
+            <option value="">All (Placed)</option>
+            <option value="true">Placed</option>
+            <option value="false">Not Placed</option>
+        </select>
+        <button onclick="filterPlacement()" class="clear-btn" style="background-color: blue">Find</button>
+        <button onclick="clearFilters()" class="clear-btn">Clear</button>
+    </div>
+
+    <div style="overflow-x: auto">
+        <table>
+            <thead>
+                <tr>
+                    <th>S. No.</th>
+                    <th>Student Name</th>
+                    <th>Course</th>
+                    <th>Batch</th>
+                    <th>Center</th>
+                    <th>Opportunity Type</th>
+                    <th>Selection Status</th>
+                    <th>Company</th>
+                    <th>Role</th>
+                    <th>Placed</th>
+                </tr>
+            </thead>
+            <tbody id="results">
+                <tr>
+                    <td colspan="10" style="text-align: center">Loading...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div id="pagination" style="display: none; text-align: center; margin-top: 20px">
+        <button id="prevBtn" onclick="changePage(currentPage - 1)" disabled class="pagination-btn">Previous</button>
+        <span id="pageInfo" style="margin: 0 20px">Page 1 of 1</span>
+        <button id="nextBtn" onclick="changePage(currentPage + 1)" disabled class="pagination-btn">Next</button>
+        <div style="margin-top: 10px">
+            <label>Records per page:</label>
+            <select id="limitSelect" onchange="changeLimit(this.value)">
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<div id="tab-upload" class="tab-content">
+    <div class="upload-card">
+        <form method="post" enctype="multipart/form-data" action="{% url 'upload_placement' %}">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="{{ upload_form.file.id_for_label }}">Upload Placement Excel File:</label>
+                {{ upload_form.file }}
+                <div style="margin-top:6px;font-size:12px;color:var(--text-muted);">
+                    Supported format: .xlsx, .xls
+                </div>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Upload &amp; Update</button>
+            </div>
+        </form>
+    </div>
+    <div class="placement-upload-note">
+        <strong>Excel Format:</strong> The file should have these columns (order doesn't matter):
+        <code>Student Name</code>, <code>Student ID</code>, <code>Course/Branch</code>, <code>Semester/Batch</code>,
+        <code>Centre/Campus</code>, <code>Opportunity Type (Internship/Placement)</code>, <code>Selection Status</code>,
+        <code>Offer Received (Y/N)</code>, <code>Company/Organization</code>, <code>Job Title/Role</code>,
+        <code>Source of Opportunity</code>, <code>Date Applied</code>, <code>Joining Date</code>, <code>Current Status</code>.
+        Placement status is determined from <code>Offer Received (Y/N)</code> or <code>Selection Status</code>.
+        Students are matched using <code>Student ID</code> (preferred) or <code>Student Name</code> + <code>Semester/Batch</code>.
+        All data columns are stored in the Placement Records table.
+    </div>
+</div>
+
+<script>
+    let currentData = [];
+    let currentPage = 1;
+    let currentLimit = 10;
+    let currentPagination = null;
+
+    function switchTab(tab) {
+        document.querySelectorAll(".placement-tab").forEach(t => t.classList.remove("active"));
+        document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+        document.querySelector(`.placement-tab[onclick="switchTab('${tab}')"]`).classList.add("active");
+        document.getElementById(`tab-${tab}`).classList.add("active");
+        if (tab === 'view') {
+            filterPlacement();
+        }
+    }
+
+    function filterPlacement() {
+        const center = USER_CENTER || document.getElementById("centerFilter").value;
+        const name = document.getElementById("nameFilter").value;
+        const course = document.getElementById("courseFilter").value;
+        const batch = document.getElementById("batchFilter").value;
+        const company = document.getElementById("companyFilter").value;
+        const opportunity = document.getElementById("opportunityFilter").value;
+        const placed = document.getElementById("placedFilter").value;
+
+        const params = new URLSearchParams({
+            name, course, batch, company, opportunity, center, placed,
+            page: currentPage,
+            limit: currentLimit,
+        });
+
+        fetch(`/filter-placement/?${params.toString()}`)
+            .then(res => res.json())
+            .then(data => {
+                currentData = data.results;
+                currentPagination = data.pagination;
+                renderTable(currentData);
+                renderPagination(currentPagination);
+            })
+            .catch(err => {
+                console.error("Error:", err);
+                document.getElementById("results").innerHTML =
+                    `<tr><td colspan="10" style="text-align:center;color:red;">Error loading data</td></tr>`;
+            });
+    }
+
+    function renderPagination(pagination) {
+        const paginationDiv = document.getElementById("pagination");
+        if (pagination.total_pages > 1) {
+            paginationDiv.style.display = "block";
+            document.getElementById("pageInfo").textContent =
+                `Page ${pagination.page} of ${pagination.total_pages}`;
+            document.getElementById("prevBtn").disabled = !pagination.has_prev;
+            document.getElementById("nextBtn").disabled = !pagination.has_next;
+            document.getElementById("limitSelect").value = pagination.limit;
+        } else {
+            paginationDiv.style.display = "none";
+        }
+    }
+
+    function changePage(page) {
+        currentPage = page;
+        filterPlacement();
+    }
+
+    function changeLimit(limit) {
+        currentLimit = parseInt(limit);
+        currentPage = 1;
+        filterPlacement();
+    }
+
+    function renderTable(data) {
+        const tbody = document.getElementById("results");
+        if (!data.length) {
+            tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;">No records found</td></tr>`;
+            return;
+        }
+        tbody.innerHTML = data.map((r, i) => `<tr>
+            <td>${(currentPage - 1) * currentLimit + i + 1}</td>
+            <td>${r.student_name}</td>
+            <td>${r.course_name}</td>
+            <td>${r.batch_code}</td>
+            <td>${r.center_name}</td>
+            <td>${r.opportunity_type}</td>
+            <td>${r.selection_status}</td>
+            <td>${r.company}</td>
+            <td>${r.job_title}</td>
+            <td>${r.placed ? '<span class="badge-yes">Yes</span>' : '<span class="badge-no">No</span>'}</td>
+        </tr>`).join("");
+    }
+
+    function clearFilters() {
+        ["nameFilter", "courseFilter", "batchFilter", "companyFilter",
+         "opportunityFilter", "centerFilter", "placedFilter"].forEach(id =>
+            document.getElementById(id).value = ""
+        );
+        currentPage = 1;
+        currentLimit = 10;
+        filterPlacement();
+    }
+
+    ["nameFilter", "courseFilter", "batchFilter", "companyFilter",
+     "opportunityFilter", "centerFilter", "placedFilter"].forEach(id =>
+        document.getElementById(id).addEventListener("change", () => {
+            currentPage = 1;
+            filterPlacement();
+        })
+    );
+
+    const USER_CENTER = "{{ user_center|default:'' }}";
+
+    window.onload = () => {
+        currentPage = 1;
+        currentLimit = 10;
+        if (USER_CENTER) {
+            document.getElementById("centerFilter").value = USER_CENTER;
+            document.getElementById("centerFilter").disabled = true;
+        }
+        filterPlacement();
+    };
+</script>
+
+{% endblock content %}
